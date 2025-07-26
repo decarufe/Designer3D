@@ -69,6 +69,8 @@ function App() {
           onSceneReady={handleSceneReady}
           selectedTool={appState.selectedTool}
           onObjectSelected={handleObjectSelected}
+          isTransformMode={appState.isTransformMode}
+          selectedObjectId={appState.selectedObject}
         />
       </div>
 

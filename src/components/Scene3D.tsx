@@ -1,8 +1,9 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { useBabylonScene } from '../hooks/useBabylonScene';
 import { useObjectSelection } from '../hooks/useObjectSelection';
 import { raycastFromCamera } from '../utils/raycast';
 import { createPrimitive } from '../utils/primitives';
+import { TransformGizmoManager, TransformMode } from '../utils/TransformGizmoManager';
 import type { PrimitiveType, SceneObject } from '../types';
 import type { Scene, Engine, WebGPUEngine, Mesh } from '@babylonjs/core';
 import type { ObjectManager } from '../utils/ObjectManager';
@@ -12,17 +13,22 @@ interface Scene3DProps {
   onSceneReady?: (scene: Scene, engine: Engine | WebGPUEngine, objectManager: ObjectManager) => void;
   selectedTool?: PrimitiveType | 'select' | null;
   onObjectSelected?: (objectId: string | null) => void;
+  isTransformMode?: boolean;
+  selectedObjectId?: string | null;
 }
 
 export const Scene3D: React.FC<Scene3DProps> = ({ 
   className = '', 
   onSceneReady,
   selectedTool = 'select',
-  onObjectSelected
+  onObjectSelected,
+  isTransformMode = false,
+  selectedObjectId = null
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const { scene, engine, objectManager, isReady, error, showInspector } = useBabylonScene(canvasRef);
   const selection = useObjectSelection({ objectManager });
+  const [transformGizmoManager, setTransformGizmoManager] = useState<TransformGizmoManager | null>(null);
 
   // Notifier le parent quand la scène est prête
   useEffect(() => {
@@ -30,6 +36,39 @@ export const Scene3D: React.FC<Scene3DProps> = ({
       onSceneReady(scene, engine, objectManager);
     }
   }, [isReady, scene, engine, objectManager, onSceneReady]);
+
+  // Initialize TransformGizmoManager when scene is ready
+  useEffect(() => {
+    if (isReady && scene && objectManager) {
+      const gizmoManager = new TransformGizmoManager(scene);
+      gizmoManager.setObjectManager(objectManager);
+      setTransformGizmoManager(gizmoManager);
+      
+      return () => {
+        gizmoManager.dispose();
+      };
+    }
+  }, [isReady, scene, objectManager]);
+
+  // Handle transform mode and object selection changes
+  useEffect(() => {
+    if (!transformGizmoManager || !objectManager) return;
+
+    // Enable/disable gizmos based on transform mode
+    transformGizmoManager.setEnabled(isTransformMode);
+
+    // Attach gizmos to selected object
+    if (isTransformMode && selectedObjectId) {
+      const selectedObjectData = objectManager.getObject(selectedObjectId);
+      if (selectedObjectData) {
+        transformGizmoManager.attachToMesh(selectedObjectData.mesh);
+      } else {
+        transformGizmoManager.attachToMesh(null);
+      }
+    } else {
+      transformGizmoManager.attachToMesh(null);
+    }
+  }, [transformGizmoManager, objectManager, isTransformMode, selectedObjectId]);
 
   // Gestion des clics sur la scène
   useEffect(() => {
@@ -43,8 +82,8 @@ export const Scene3D: React.FC<Scene3DProps> = ({
       const x = event.clientX - rect.left;
       const y = event.clientY - rect.top;
 
-      // Si on est en mode sélection
-      if (selectedTool === 'select') {
+      // Si on est en mode sélection ou en mode transformation
+      if (selectedTool === 'select' || isTransformMode) {
         const pickInfo = scene.pick(x, y);
         if (pickInfo.hit && pickInfo.pickedMesh) {
           const sceneObject = objectManager.findObjectByMesh(pickInfo.pickedMesh as Mesh);
@@ -91,7 +130,7 @@ export const Scene3D: React.FC<Scene3DProps> = ({
     };
 
     const handlePointerMove = (event: PointerEvent) => {
-      if (selectedTool === 'select' && canvasRef.current) {
+      if ((selectedTool === 'select' || isTransformMode) && canvasRef.current) {
         const canvas = canvasRef.current;
         const rect = canvas.getBoundingClientRect();
         const x = event.clientX - rect.left;
@@ -119,7 +158,7 @@ export const Scene3D: React.FC<Scene3DProps> = ({
         canvas.removeEventListener('pointermove', handlePointerMove);
       };
     }
-  }, [scene, objectManager, selectedTool, selection, onObjectSelected]);
+  }, [scene, objectManager, selectedTool, selection, onObjectSelected, isTransformMode]);
 
   // Gestion des raccourcis clavier
   useEffect(() => {
@@ -135,11 +174,35 @@ export const Scene3D: React.FC<Scene3DProps> = ({
         selection.deleteSelectedObject();
         onObjectSelected?.(null);
       }
+
+      // G pour changer le mode de transformation (quand en mode transformation)
+      if (event.key === 'g' && isTransformMode && transformGizmoManager) {
+        event.preventDefault();
+        transformGizmoManager.cycleTransformMode();
+      }
+
+      // X pour mode position
+      if (event.key === 'x' && isTransformMode && transformGizmoManager) {
+        event.preventDefault();
+        transformGizmoManager.setTransformMode(TransformMode.POSITION);
+      }
+
+      // R pour mode rotation
+      if (event.key === 'r' && isTransformMode && transformGizmoManager) {
+        event.preventDefault();
+        transformGizmoManager.setTransformMode(TransformMode.ROTATION);
+      }
+
+      // S pour mode scale
+      if (event.key === 's' && isTransformMode && transformGizmoManager) {
+        event.preventDefault();
+        transformGizmoManager.setTransformMode(TransformMode.SCALE);
+      }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [showInspector, selection, onObjectSelected]);
+  }, [showInspector, selection, onObjectSelected, isTransformMode, transformGizmoManager]);
 
   if (error) {
     return (
@@ -185,7 +248,14 @@ export const Scene3D: React.FC<Scene3DProps> = ({
       {selection.selectedObject && (
         <div className="absolute top-4 left-4 bg-black bg-opacity-50 text-white text-sm px-3 py-2 rounded">
           <div>Sélectionné: {selection.selectedObject.name}</div>
-          <div className="text-xs opacity-75">Appuyez sur Suppr pour supprimer</div>
+          {isTransformMode && transformGizmoManager && (
+            <div className="text-xs opacity-75 mt-1">
+              Mode: {transformGizmoManager.getTransformMode().toUpperCase()} | G: Cycle | X: Position | R: Rotation | S: Scale
+            </div>
+          )}
+          {!isTransformMode && (
+            <div className="text-xs opacity-75">Appuyez sur Suppr pour supprimer</div>
+          )}
         </div>
       )}
     </div>
