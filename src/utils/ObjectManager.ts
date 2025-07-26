@@ -149,7 +149,20 @@ export class ObjectManager {
    * Nettoyage lors de la destruction
    */
   dispose() {
+    // Nettoyer tous les objets
+    for (const [, object] of this.objects) {
+      object.mesh.dispose();
+      if (object.mesh.material) {
+        object.mesh.material.dispose();
+      }
+    }
+    
+    // Nettoyer les systèmes de rendu
     this.highlightLayer.dispose();
     this.objects.clear();
+    
+    // Nettoyer les références
+    this.selectedMesh = null;
+    this.hoveredMesh = null;
   }
 }

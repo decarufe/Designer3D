@@ -4,10 +4,12 @@ import { useObjectSelection } from '../hooks/useObjectSelection';
 import { raycastFromCamera } from '../utils/raycast';
 import { createPrimitive } from '../utils/primitives';
 import type { PrimitiveType, SceneObject } from '../types';
+import type { Scene, Engine, WebGPUEngine, Mesh } from '@babylonjs/core';
+import type { ObjectManager } from '../utils/ObjectManager';
 
 interface Scene3DProps {
   className?: string;
-  onSceneReady?: (scene: any, engine: any, objectManager: any) => void;
+  onSceneReady?: (scene: Scene, engine: Engine | WebGPUEngine, objectManager: ObjectManager) => void;
   selectedTool?: PrimitiveType | 'select' | null;
   onObjectSelected?: (objectId: string | null) => void;
 }
@@ -45,7 +47,7 @@ export const Scene3D: React.FC<Scene3DProps> = ({
       if (selectedTool === 'select') {
         const pickInfo = scene.pick(x, y);
         if (pickInfo.hit && pickInfo.pickedMesh) {
-          const sceneObject = objectManager.findObjectByMesh(pickInfo.pickedMesh as any);
+          const sceneObject = objectManager.findObjectByMesh(pickInfo.pickedMesh as Mesh);
           if (sceneObject) {
             selection.selectObject(sceneObject.id);
             onObjectSelected?.(sceneObject.id);
@@ -97,7 +99,7 @@ export const Scene3D: React.FC<Scene3DProps> = ({
 
         const pickInfo = scene.pick(x, y);
         if (pickInfo.hit && pickInfo.pickedMesh) {
-          const sceneObject = objectManager.findObjectByMesh(pickInfo.pickedMesh as any);
+          const sceneObject = objectManager.findObjectByMesh(pickInfo.pickedMesh as Mesh);
           if (sceneObject) {
             selection.hoverObject(sceneObject.id);
           }
@@ -108,13 +110,15 @@ export const Scene3D: React.FC<Scene3DProps> = ({
     };
 
     const canvas = canvasRef.current;
-    canvas.addEventListener('pointerdown', handlePointerDown);
-    canvas.addEventListener('pointermove', handlePointerMove);
-
-    return () => {
-      canvas.removeEventListener('pointerdown', handlePointerDown);
-      canvas.removeEventListener('pointermove', handlePointerMove);
-    };
+    if (canvas) {
+      canvas.addEventListener('pointerdown', handlePointerDown);
+      canvas.addEventListener('pointermove', handlePointerMove);
+      
+      return () => {
+        canvas.removeEventListener('pointerdown', handlePointerDown);
+        canvas.removeEventListener('pointermove', handlePointerMove);
+      };
+    }
   }, [scene, objectManager, selectedTool, selection, onObjectSelected]);
 
   // Gestion des raccourcis clavier

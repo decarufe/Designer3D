@@ -9,8 +9,6 @@ import {
   Square, 
   Zap,
   Move3D,
-  RotateCcw,
-  Scale,
   MousePointer
 } from 'lucide-react';
 import { clsx } from 'clsx';
@@ -37,11 +35,12 @@ const primitiveTools: Array<{
   { type: 'torus', icon: <Zap size={20} />, label: 'Tore' },
 ];
 
-const transformTools = [
-  { key: 'move', icon: <Move3D size={20} />, label: 'Déplacer' },
-  { key: 'rotate', icon: <RotateCcw size={20} />, label: 'Tourner' },
-  { key: 'scale', icon: <Scale size={20} />, label: 'Redimensionner' },
-];
+// Transform tools configuration (planned for future use)
+// const transformTools = [
+//   { key: 'move', icon: <Move3D size={20} />, label: 'Déplacer' },
+//   { key: 'rotate', icon: <RotateCcw size={20} />, label: 'Tourner' },
+//   { key: 'scale', icon: <Scale size={20} />, label: 'Redimensionner' },
+// ];
 
 export const PrimitiveToolbar: React.FC<PrimitiveToolbarProps> = ({
   selectedTool,
