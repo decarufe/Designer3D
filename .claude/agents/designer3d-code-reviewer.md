@@ -1,6 +1,7 @@
 ---
 name: designer3d-code-reviewer
 description: Use this agent when reviewing code changes in the Designer3D project, particularly after implementing new 3D features, fixing bugs, or refactoring components that involve Babylon.js, React, or TypeScript. Examples: <example>Context: User has just implemented a new 3D primitive object in the Designer3D project. user: 'I just added a new sphere primitive with material support. Here's the code...' assistant: 'Let me use the designer3d-code-reviewer agent to analyze your new sphere primitive implementation for Babylon.js best practices, React integration, and TypeScript consistency.'</example> <example>Context: User has modified the ObjectManager to support WebGPU features. user: 'I updated the ObjectManager to handle WebGPU rendering. Can you review the changes?' assistant: 'I'll use the designer3d-code-reviewer agent to examine your ObjectManager changes for WebGPU compatibility, resource management, and architectural consistency.'</example>
+tools: Glob, Grep, LS, Read, WebFetch, WebSearch
 color: green
 ---
 

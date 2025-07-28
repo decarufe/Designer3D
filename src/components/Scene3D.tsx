@@ -70,7 +70,15 @@ export const Scene3D: React.FC<Scene3DProps> = ({
     }
   }, [transformGizmoManager, objectManager, isTransformMode, selectedObjectId]);
 
-  // Gestion des clics sur la scène
+  // Touch gesture support state
+  const [touchData, setTouchData] = useState<{
+    startX: number;
+    startY: number;
+    startTime: number;
+    touchCount: number;
+  } | null>(null);
+
+  // Scene interaction handling with touch support
   useEffect(() => {
     if (!scene || !objectManager || !canvasRef.current) return;
 
@@ -148,17 +156,102 @@ export const Scene3D: React.FC<Scene3DProps> = ({
       }
     };
 
+    // Touch gesture handlers
+    const handleTouchStart = (event: TouchEvent) => {
+      event.preventDefault(); // Prevent scrolling
+      
+      if (event.touches.length === 1) {
+        const touch = event.touches[0];
+        setTouchData({
+          startX: touch.clientX,
+          startY: touch.clientY,
+          startTime: Date.now(),
+          touchCount: 1
+        });
+      } else if (event.touches.length === 2) {
+        // Multi-touch detected - could be used for pinch-to-zoom
+        setTouchData(prev => prev ? { ...prev, touchCount: 2 } : null);
+      }
+    };
+
+    const handleTouchMove = (event: TouchEvent) => {
+      event.preventDefault(); // Prevent scrolling
+      
+      if (event.touches.length === 1 && touchData?.touchCount === 1) {
+        // Single finger pan - treat as mouse move for hover effects
+        const touch = event.touches[0];
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        
+        const rect = canvas.getBoundingClientRect();
+        const x = touch.clientX - rect.left;
+        const y = touch.clientY - rect.top;
+        
+        // Only show hover effects if it's a slow movement (not a swipe)
+        const deltaX = Math.abs(touch.clientX - touchData.startX);
+        const deltaY = Math.abs(touch.clientY - touchData.startY);
+        const deltaTime = Date.now() - touchData.startTime;
+        
+        if (deltaTime > 200 && (deltaX < 10 && deltaY < 10)) {
+          const pickInfo = scene.pick(x, y);
+          if (pickInfo.hit && pickInfo.pickedMesh) {
+            const sceneObject = objectManager.findObjectByMesh(pickInfo.pickedMesh as Mesh);
+            if (sceneObject) {
+              selection.hoverObject(sceneObject.id);
+            }
+          }
+        }
+      }
+    };
+
+    const handleTouchEnd = (event: TouchEvent) => {
+      event.preventDefault();
+      
+      if (touchData && event.changedTouches.length === 1) {
+        const touch = event.changedTouches[0];
+        const deltaTime = Date.now() - touchData.startTime;
+        const deltaX = Math.abs(touch.clientX - touchData.startX);
+        const deltaY = Math.abs(touch.clientY - touchData.startY);
+        
+        // Detect tap (short duration, small movement)
+        if (deltaTime < 300 && deltaX < 10 && deltaY < 10) {
+          // Simulate pointer down event for tap
+          const syntheticEvent = new PointerEvent('pointerdown', {
+            clientX: touch.clientX,
+            clientY: touch.clientY,
+            bubbles: true,
+            cancelable: true
+          });
+          handlePointerDown(syntheticEvent);
+        }
+        
+        // Clear hover state on touch end
+        selection.hoverObject(null);
+      }
+      
+      setTouchData(null);
+    };
+
     const canvas = canvasRef.current;
     if (canvas) {
+      // Pointer events (mouse and basic touch)
       canvas.addEventListener('pointerdown', handlePointerDown);
       canvas.addEventListener('pointermove', handlePointerMove);
+      
+      // Enhanced touch events for better mobile experience
+      canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
+      canvas.addEventListener('touchmove', handleTouchMove, { passive: false });
+      canvas.addEventListener('touchend', handleTouchEnd, { passive: false });
       
       return () => {
         canvas.removeEventListener('pointerdown', handlePointerDown);
         canvas.removeEventListener('pointermove', handlePointerMove);
+        canvas.removeEventListener('touchstart', handleTouchStart);
+        canvas.removeEventListener('touchmove', handleTouchMove);
+        canvas.removeEventListener('touchend', handleTouchEnd);
       };
     }
-  }, [scene, objectManager, selectedTool, selection, onObjectSelected, isTransformMode]);
+  }, [scene, objectManager, selectedTool, selection, onObjectSelected, isTransformMode, touchData]);
 
   // Gestion des raccourcis clavier
   useEffect(() => {
@@ -207,14 +300,31 @@ export const Scene3D: React.FC<Scene3DProps> = ({
   if (error) {
     return (
       <div className={`flex items-center justify-center bg-red-50 border border-red-200 rounded-lg ${className}`}>
-        <div className="text-center p-8">
+        <div className="text-center p-8 max-w-md" role="alert" aria-live="polite">
+          <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+            </svg>
+          </div>
           <h3 className="text-lg font-semibold text-red-800 mb-2">
-            Erreur d'initialisation 3D
+            Impossible d'initialiser la scène 3D
           </h3>
           <p className="text-red-600 mb-4">{error}</p>
-          <p className="text-sm text-red-500">
-            Vérifiez que votre navigateur supporte WebGL ou WebGPU
-          </p>
+          <div className="text-sm text-red-500 space-y-2">
+            <p>Solutions possibles:</p>
+            <ul className="list-disc list-inside text-left">
+              <li>Vérifiez que WebGL est activé</li>
+              <li>Mettez à jour votre navigateur</li>
+              <li>Essayez un autre navigateur</li>
+            </ul>
+          </div>
+          <button 
+            onClick={() => window.location.reload()} 
+            className="mt-4 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
+            aria-label="Recharger la page pour réessayer"
+          >
+            Recharger la page
+          </button>
         </div>
       </div>
     );
@@ -226,35 +336,58 @@ export const Scene3D: React.FC<Scene3DProps> = ({
         ref={canvasRef}
         className="w-full h-full block outline-none"
         tabIndex={0}
+        role="application"
+        aria-label="Éditeur 3D pour créer et manipuler des formes géométriques"
+        aria-describedby="canvas-instructions"
       />
+      <div id="canvas-instructions" className="sr-only">
+        Utilisez les outils de la barre d'outils pour créer des objets 3D. 
+        Appuyez sur F12 pour l'inspecteur, Suppr pour supprimer l'objet sélectionné.
+      </div>
       
       {!isReady && (
-        <div className="absolute inset-0 flex items-center justify-center bg-gray-900 bg-opacity-75">
-          <div className="text-center text-white">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-4"></div>
-            <p>Initialisation de la scène 3D...</p>
+        <div className="absolute inset-0 flex items-center justify-center bg-gray-900/75 backdrop-blur-sm" role="status" aria-live="polite">
+          <div className="text-center text-white max-w-sm">
+            <div className="relative w-16 h-16 mx-auto mb-6">
+              <div className="absolute inset-0 border-4 border-white/20 rounded-full"></div>
+              <div className="absolute inset-0 border-4 border-t-white border-transparent rounded-full animate-spin"></div>
+            </div>
+            <h3 className="text-lg font-semibold mb-2">Initialisation 3D</h3>
+            <p className="text-sm text-gray-300 mb-4">
+              Configuration du moteur de rendu...
+            </p>
+            <div className="text-xs text-gray-400">
+              {engine?.constructor.name === 'WebGPUEngine' ? 
+                'Utilisation de WebGPU pour de meilleures performances' : 
+                'Chargement du moteur WebGL'
+              }
+            </div>
           </div>
         </div>
       )}
 
-      {/* Indicateur du moteur utilisé */}
+      {/* Engine Indicator */}
       {isReady && (
-        <div className="absolute bottom-4 right-4 bg-black bg-opacity-50 text-white text-xs px-2 py-1 rounded">
+        <div className="absolute bottom-4 right-4 bg-black/50 backdrop-blur-sm text-white text-xs px-2 py-1 rounded" role="status">
           {engine?.constructor.name === 'WebGPUEngine' ? 'WebGPU' : 'WebGL'}
         </div>
       )}
 
-      {/* Informations de sélection */}
+      {/* Selection Information */}
       {selection.selectedObject && (
-        <div className="absolute top-4 left-4 bg-black bg-opacity-50 text-white text-sm px-3 py-2 rounded">
+        <div className="absolute top-4 left-4 bg-black/50 backdrop-blur-sm text-white text-sm px-3 py-2 rounded-lg" role="status" aria-live="polite">
           <div>Sélectionné: {selection.selectedObject.name}</div>
           {isTransformMode && transformGizmoManager && (
             <div className="text-xs opacity-75 mt-1">
-              Mode: {transformGizmoManager.getTransformMode().toUpperCase()} | G: Cycle | X: Position | R: Rotation | S: Scale
+              Mode: {transformGizmoManager.getTransformMode().toUpperCase()} 
+              <span className="hidden sm:inline">| G: Cycle | X: Position | R: Rotation | S: Scale</span>
             </div>
           )}
           {!isTransformMode && (
-            <div className="text-xs opacity-75">Appuyez sur Suppr pour supprimer</div>
+            <div className="text-xs opacity-75">
+              <span className="hidden sm:inline">Appuyez sur Suppr pour supprimer</span>
+              <span className="sm:hidden">Suppr: supprimer</span>
+            </div>
           )}
         </div>
       )}

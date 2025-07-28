@@ -1,6 +1,5 @@
 import React from 'react';
 import * as Toolbar from '@radix-ui/react-toolbar';
-import * as Separator from '@radix-ui/react-separator';
 import { 
   Box, 
   Circle, 
@@ -52,42 +51,49 @@ export const PrimitiveToolbar: React.FC<PrimitiveToolbarProps> = ({
   return (
     <Toolbar.Root 
       className={clsx(
-        'flex items-center gap-2 p-4 bg-white border-b border-gray-200 shadow-sm',
+        'flex flex-col sm:flex-row items-start sm:items-center gap-4 p-4 bg-white/90 backdrop-blur-sm border-b border-gray-200/50 shadow-lg',
         className
       )}
       orientation="horizontal"
+      role="toolbar"
+      aria-label="Outils de modélisation 3D"
     >
-      {/* Section Sélection et Primitives */}
-      <div className="flex items-center gap-1">
-        <span className="text-sm font-medium text-gray-700 mr-2">Outils:</span>
-        
-        {/* Bouton Sélection */}
+      {/* Selection Tools Group */}
+      <div className="flex items-center gap-1 bg-gray-50 rounded-lg p-1">
+        <span className="text-xs font-medium text-gray-600 px-2">Sélection</span>
         <Toolbar.Button
           className={clsx(
-            'inline-flex items-center justify-center px-3 py-2 rounded-md text-sm font-medium transition-colors',
-            'hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1',
+            'inline-flex items-center justify-center px-3 py-2 rounded-md text-sm font-medium transition-all duration-200',
+            'hover:bg-white hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50',
+            'min-h-[44px] min-w-[44px] touch-manipulation',
             selectedTool === 'select'
-              ? 'bg-blue-100 text-blue-700 border border-blue-200'
-              : 'text-gray-600 border border-transparent'
+              ? 'bg-white text-blue-700 shadow-sm ring-1 ring-blue-200'
+              : 'text-gray-600'
           )}
           onClick={() => onToolSelect('select')}
           title="Mode sélection"
+          aria-label="Sélectionner les objets dans la scène 3D"
+          aria-pressed={selectedTool === 'select'}
+          role="button"
         >
-          <MousePointer className="w-4 h-4 mr-1" />
-          Sélectionner
+          <MousePointer className="w-4 h-4 mr-1" aria-hidden="true" />
+          <span className="hidden sm:inline">Sélectionner</span>
         </Toolbar.Button>
+      </div>
 
-        <Separator.Root className="w-px h-6 bg-gray-300 mx-2" />
-        
+      {/* Primitive Tools Group */}
+      <div className="flex flex-wrap items-center gap-1 bg-gray-50 rounded-lg p-1">
+        <span className="text-xs font-medium text-gray-600 px-2">Formes</span>
         {primitiveTools.map((tool) => (
           <Toolbar.Button
             key={tool.type}
             className={clsx(
-              'inline-flex items-center justify-center px-3 py-2 rounded-md text-sm font-medium transition-colors',
-              'hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1',
+              'inline-flex items-center justify-center p-2 rounded-md transition-all duration-200',
+              'hover:bg-white hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50',
+              'min-h-[44px] min-w-[44px] touch-manipulation',
               selectedTool === tool.type && !isTransformMode
-                ? 'bg-blue-100 text-blue-700 border border-blue-300'
-                : 'text-gray-700 border border-gray-300'
+                ? 'bg-white text-blue-700 shadow-sm ring-1 ring-blue-200'
+                : 'text-gray-600 hover:text-gray-900'
             )}
             onClick={() => {
               if (selectedTool === tool.type && !isTransformMode) {
@@ -96,43 +102,46 @@ export const PrimitiveToolbar: React.FC<PrimitiveToolbarProps> = ({
                 onToolSelect(tool.type);
               }
             }}
+            aria-label={`Créer ${tool.label}`}
+            aria-pressed={selectedTool === tool.type && !isTransformMode}
             title={tool.label}
+            role="button"
           >
             {tool.icon}
           </Toolbar.Button>
         ))}
       </div>
 
-      <Separator.Root className="w-px h-6 bg-gray-300" />
-
-      {/* Section Transformation */}
-      <div className="flex items-center gap-1">
-        <span className="text-sm font-medium text-gray-700 mr-2">Outils:</span>
+      {/* Transform Mode Group */}
+      <div className="flex items-center gap-1 bg-gray-50 rounded-lg p-1">
+        <span className="text-xs font-medium text-gray-600 px-2">Transformation</span>
         <Toolbar.Button
           className={clsx(
-            'inline-flex items-center justify-center px-3 py-2 rounded-md text-sm font-medium transition-colors',
-            'hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-1',
+            'inline-flex items-center justify-center p-2 rounded-md transition-all duration-200',
+            'hover:bg-white hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-green-500/50',
+            'min-h-[44px] min-w-[44px] touch-manipulation',
             isTransformMode
-              ? 'bg-green-100 text-green-700 border border-green-300'
-              : 'text-gray-700 border border-gray-300'
+              ? 'bg-green-100 text-green-700 shadow-sm ring-1 ring-green-200'
+              : 'text-gray-600 hover:text-gray-900'
           )}
           onClick={onTransformModeToggle}
+          aria-label="Activer le mode transformation"
+          aria-pressed={isTransformMode}
           title="Mode transformation"
+          role="button"
         >
-          <Move3D size={20} />
+          <Move3D size={20} aria-hidden="true" />
         </Toolbar.Button>
       </div>
 
-      <Separator.Root className="w-px h-6 bg-gray-300" />
-
-      {/* Informations */}
+      {/* Status Display */}
       <div className="flex-1" />
-      <div className="text-xs text-gray-500">
+      <div className="text-sm text-gray-600 bg-gray-50 px-3 py-1.5 rounded-md hidden sm:block">
         {selectedTool && !isTransformMode 
           ? `Cliquez pour placer: ${primitiveTools.find(t => t.type === selectedTool)?.label}`
           : isTransformMode 
-          ? 'Mode transformation - Sélectionnez un objet'
-          : 'Sélectionnez une forme ou activez le mode transformation'
+          ? 'Mode transformation actif'
+          : 'Sélectionnez un outil'
         }
       </div>
     </Toolbar.Root>
